@@ -1,0 +1,106 @@
+name: Build Shivam Cyber Cafe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+
+  # =========================
+  # WINDOWS BUILD
+  # =========================
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Check Flutter
+        run: flutter --version
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Generate Windows project
+        run: flutter create . --platforms=windows
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows
+        env:
+          CXXFLAGS: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+        run: flutter build windows --release
+
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "build\windows\x64\runner\Release\*" `
+            -DestinationPath "Shivam-Cyber-Cafe-Windows.zip" `
+            -Force
+
+      - name: Upload Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shivam-Cyber-Cafe-Windows
+          path: Shivam-Cyber-Cafe-Windows.zip
+          if-no-files-found: error
+          retention-days: 30
+
+
+  # =========================
+  # ANDROID BUILD
+  # =========================
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Check Flutter
+        run: flutter --version
+
+      - name: Enable Android
+        run: flutter config --enable-android
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        shell: bash
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shivam-Cyber-Cafe-Android
+          path: build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
+          if-no-files-found: error
+          retention-days: 30
