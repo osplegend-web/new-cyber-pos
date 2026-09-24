@@ -11,9 +11,9 @@ permissions:
 
 jobs:
 
-  # ==========================================
-  # WINDOWS BUILD
-  # ==========================================
+  # =========================
+  # WINDOWS EXE
+  # =========================
   build-windows:
     name: Build Windows EXE
     runs-on: windows-latest
@@ -31,20 +31,31 @@ jobs:
       - name: Check Flutter
         run: flutter --version
 
-      - name: Generate Windows project
+      - name: Enable Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Create missing assets directory
+        shell: powershell
         run: |
-          flutter create . --platforms=windows
+          if (!(Test-Path "assets\images")) {
+            New-Item -ItemType Directory -Force -Path "assets\images" | Out-Null
+          }
+
+      - name: Generate Windows project if missing
+        shell: powershell
+        run: |
+          if (!(Test-Path "windows\CMakeLists.txt")) {
+            flutter create --platforms=windows .
+          }
 
       - name: Get dependencies
         run: flutter pub get
 
       - name: Build Windows
-        env:
-          CXXFLAGS: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
         run: flutter build windows --release
 
-      - name: Package Windows
-        shell: pwsh
+      - name: Package Windows application
+        shell: powershell
         run: |
           Compress-Archive `
             -Path "build\windows\x64\runner\Release\*" `
@@ -56,13 +67,11 @@ jobs:
         with:
           name: Shivam-Cyber-Cafe-Windows
           path: Shivam-Cyber-Cafe-Windows.zip
-          if-no-files-found: error
-          retention-days: 30
 
 
-  # ==========================================
-  # ANDROID BUILD
-  # ==========================================
+  # =========================
+  # ANDROID APK
+  # =========================
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
@@ -70,6 +79,12 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -80,50 +95,48 @@ jobs:
       - name: Check Flutter
         run: flutter --version
 
-      - name: Generate Android project
-        run: |
-          rm -rf android
-          flutter create . --platforms=android
+      - name: Enable Android
+        run: flutter config --enable-android
 
-      - name: Verify Android project
+      - name: Create missing Android project
+        shell: bash
         run: |
-          echo "================================"
-          echo "ANDROID PROJECT CHECK"
-          echo "================================"
-
-          if [ -f android/app/build.gradle.kts ]; then
-            echo "Found: android/app/build.gradle.kts"
-          elif [ -f android/app/build.gradle ]; then
-            echo "Found: android/app/build.gradle"
+          if [ ! -f "android/app/build.gradle" ] && [ ! -f "android/app/build.gradle.kts" ]; then
+            echo "Android project missing. Generating Android platform..."
+            flutter create --platforms=android .
           else
-            echo "ERROR: Android Gradle file was not generated."
-            exit 1
+            echo "Android project already exists."
           fi
 
-          echo "Android project generated successfully."
+      - name: Create assets directory
+        run: |
+          mkdir -p assets/images
 
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Clean Flutter
+        run: flutter clean
+
+      - name: Get dependencies again
+        run: flutter pub get
+
+      - name: Verify Android project
+        run: |
+          test -f android/app/build.gradle || test -f android/app/build.gradle.kts
+          echo "Android project found successfully."
+
       - name: Build Android APK
         run: flutter build apk --release
 
-      - name: Check APK
-        run: |
-          echo "================================"
-          echo "APK CHECK"
-          echo "================================"
-          ls -lah build/app/outputs/flutter-apk/
-
       - name: Rename APK
         run: |
-          mv build/app/outputs/flutter-apk/app-release.apk \
-          build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             release/Shivam-Cyber-Cafe.apk
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: Shivam-Cyber-Cafe-Android
-          path: build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
-          if-no-files-found: error
-          retention-days: 30
+          path: release/Shivam-Cyber-Cafe.apk
