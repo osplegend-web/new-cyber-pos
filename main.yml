@@ -11,9 +11,9 @@ permissions:
 
 jobs:
 
-  # =========================
-  # WINDOWS
-  # =========================
+  # ==========================================
+  # WINDOWS BUILD
+  # ==========================================
   build-windows:
     name: Build Windows EXE
     runs-on: windows-latest
@@ -32,7 +32,8 @@ jobs:
         run: flutter --version
 
       - name: Generate Windows project
-        run: flutter create . --platforms=windows
+        run: |
+          flutter create . --platforms=windows
 
       - name: Get dependencies
         run: flutter pub get
@@ -50,17 +51,18 @@ jobs:
             -DestinationPath "Shivam-Cyber-Cafe-Windows.zip" `
             -Force
 
-      - name: Upload Windows
+      - name: Upload Windows application
         uses: actions/upload-artifact@v4
         with:
           name: Shivam-Cyber-Cafe-Windows
           path: Shivam-Cyber-Cafe-Windows.zip
           if-no-files-found: error
+          retention-days: 30
 
 
-  # =========================
-  # ANDROID
-  # =========================
+  # ==========================================
+  # ANDROID BUILD
+  # ==========================================
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
@@ -79,7 +81,26 @@ jobs:
         run: flutter --version
 
       - name: Generate Android project
-        run: flutter create . --platforms=android
+        run: |
+          rm -rf android
+          flutter create . --platforms=android
+
+      - name: Verify Android project
+        run: |
+          echo "================================"
+          echo "ANDROID PROJECT CHECK"
+          echo "================================"
+
+          if [ -f android/app/build.gradle.kts ]; then
+            echo "Found: android/app/build.gradle.kts"
+          elif [ -f android/app/build.gradle ]; then
+            echo "Found: android/app/build.gradle"
+          else
+            echo "ERROR: Android Gradle file was not generated."
+            exit 1
+          fi
+
+          echo "Android project generated successfully."
 
       - name: Get dependencies
         run: flutter pub get
@@ -87,11 +108,17 @@ jobs:
       - name: Build Android APK
         run: flutter build apk --release
 
+      - name: Check APK
+        run: |
+          echo "================================"
+          echo "APK CHECK"
+          echo "================================"
+          ls -lah build/app/outputs/flutter-apk/
+
       - name: Rename APK
-        shell: bash
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
+          build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -99,3 +126,4 @@ jobs:
           name: Shivam-Cyber-Cafe-Android
           path: build/app/outputs/flutter-apk/Shivam-Cyber-Cafe.apk
           if-no-files-found: error
+          retention-days: 30
